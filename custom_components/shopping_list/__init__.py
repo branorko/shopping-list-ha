@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from aiohttp import web
@@ -12,7 +11,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers import config_validation as cv
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.components.frontend import add_extra_js_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,10 +22,10 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 WWW_DIR = Path(__file__).parent / "www"
 CARD_FILE = "shopping-list-card.js"
+STATIC_PATH = "/shopping_list_static"
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up the Shopping List component."""
     return True
 
 
@@ -38,32 +36,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["store"] = store
 
-    # Register REST API views
+    # Register REST API
     hass.http.register_view(ShoppingListDataView(store))
 
-    # Serve the www directory
-    hass.http.register_static_path(
-        f"/shopping_list_static",
-        str(WWW_DIR),
-        cache_headers=False,
-    )
+    # Serve www/ — try new API first, fall back to old
+    try:
+        from homeassistant.components.http import StaticPathConfig
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(STATIC_PATH, str(WWW_DIR), cache_headers=False)
+        ])
+    except Exception:
+        try:
+            hass.http.register_static_path(STATIC_PATH, str(WWW_DIR), cache_headers=False)
+        except Exception as e:
+            _LOGGER.warning("Static path registration failed: %s", e)
 
-    # Auto-register the Lovelace card JS
-    card_url = f"/shopping_list_static/{CARD_FILE}"
-    add_extra_js_url(hass, card_url)
+    # Auto-register JS card
+    try:
+        from homeassistant.components.frontend import add_extra_js_url
+        add_extra_js_url(hass, f"{STATIC_PATH}/{CARD_FILE}")
+        _LOGGER.info("Shopping List card registered at %s/%s", STATIC_PATH, CARD_FILE)
+    except Exception as e:
+        _LOGGER.warning("JS auto-registration failed: %s — add resource manually.", e)
 
-    _LOGGER.info("Shopping List integration set up, card registered at %s", card_url)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
     hass.data[DOMAIN].pop("store", None)
     return True
 
 
 class ShoppingListDataView(HomeAssistantView):
-    """REST API endpoint for Shopping List data."""
+    """REST API: GET/POST /api/shopping_list/data"""
 
     url = "/api/shopping_list/data"
     name = "api:shopping_list:data"
@@ -73,23 +78,15 @@ class ShoppingListDataView(HomeAssistantView):
         self._store = store
 
     async def get(self, request: web.Request) -> web.Response:
-        """Return stored data."""
         data = await self._store.async_load()
         if data is None:
             data = {"items": [], "categories": [], "products": []}
-        return web.Response(
-            text=json.dumps(data),
-            content_type="application/json",
-        )
+        return web.Response(text=json.dumps(data), content_type="application/json")
 
     async def post(self, request: web.Request) -> web.Response:
-        """Save data."""
         try:
             body = await request.json()
         except Exception:
             return web.Response(status=400, text="Invalid JSON")
         await self._store.async_save(body)
-        return web.Response(
-            text=json.dumps({"ok": True}),
-            content_type="application/json",
-        )
+        return web.Response(text=json.dumps({"ok": True}), content_type="application/json")
