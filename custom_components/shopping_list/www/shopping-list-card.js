@@ -566,8 +566,14 @@ class ShoppingListCard extends HTMLElement {
       body.appendChild(elTxt('p', t.noProds, 'sl-empty'));
     } else {
       prods.forEach(prod => {
+        const existing = this._data.items.find(i => i.name.toLowerCase() === prod.name.toLowerCase());
         const row = el('div', 'sl-prod-item');
         row.appendChild(elTxt('span', prod.name, 'sl-prod-name'));
+        if (existing) {
+          const badge = elTxt('span', `${existing.qty} ks`);
+          badge.style.cssText = `font-size:12px;padding:2px 8px;border-radius:10px;margin-left:8px;flex-shrink:0;background:${existing.bought ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'};color:${existing.bought ? '#22c55e' : '#ef4444'};`;
+          row.appendChild(badge);
+        }
         row.addEventListener('click', () => { bd.remove(); this._openQtyPopup(prod.name, cat); });
         body.appendChild(row);
       });
@@ -582,7 +588,11 @@ class ShoppingListCard extends HTMLElement {
   /* ── ADD: qty bottom sheet ── */
   _openQtyPopup(prefillName, prefillCat) {
     const t = this._t();
-    let qty = 1;
+    // If item already in list, load its current qty
+    const existingItem = prefillName
+      ? this._data.items.find(i => i.name.toLowerCase() === prefillName.toLowerCase())
+      : null;
+    let qty = existingItem ? existingItem.qty : 1;
     let finalName = prefillName || '';
     const { bd, sheet } = this._makeSheet();
 
@@ -632,8 +642,14 @@ class ShoppingListCard extends HTMLElement {
 
   _addItem(name, cat, qty) {
     if (!name) return false;
-    if (this._nameExists(name)) { alert(this._t().duplicate); return false; }
-    this._data.items.push({ id: this._nextId(), name, cat: cat || '', qty, bought: false });
+    const existing = this._data.items.find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      // Update qty on existing item instead of blocking
+      existing.qty = qty;
+      existing.bought = false; // unmark if was bought
+    } else {
+      this._data.items.push({ id: this._nextId(), name, cat: cat || '', qty, bought: false });
+    }
     this._save(); this._render();
     return true;
   }
