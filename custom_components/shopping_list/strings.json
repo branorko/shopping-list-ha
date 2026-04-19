@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Shopping List",
+        "description": "Set up the Shopping List card for Home Assistant."
+      }
+    },
+    "abort": {
+      "already_configured": "Shopping List is already configured."
+    },
+    "create_entry": {
+      "default": "Shopping List has been set up successfully."
+    }
+  }
+}
