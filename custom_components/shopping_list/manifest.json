@@ -1,7 +1,7 @@
 {
   "domain": "shopping_list",
   "name": "Shopping List",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "documentation": "https://gitlab.com/your-repo/shopping-list-ha",
   "issue_tracker": "https://gitlab.com/your-repo/shopping-list-ha/-/issues",
   "codeowners": [],
