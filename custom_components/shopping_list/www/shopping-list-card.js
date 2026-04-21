@@ -1,69 +1,63 @@
 /* ============================================================
    shopping-list-card.js  —  Home Assistant Lovelace Card
-   Shopping List with categories, predefined products, print
-   v1.0.1 — proper full-screen modals via document.body
+   v1.1.0 — units, edit mode, custom dropdowns, cat ordering
    ============================================================ */
 
 const API_URL = '/api/shopping_list/data';
+const UNITS = ['ks', 'kg', 'l'];
 
 /* ── i18n ──────────────────────────────────────────────────── */
 const TRANSLATIONS = {
   sk: {
     title: 'Nákupný zoznam', add: 'Pridať položku', settings: 'Nastavenia',
-    bought: 'Kúpené', delete: 'Zmazať', save: 'Uložiť', cancel: 'Zrušiť',
-    back: 'Späť', close: 'Zatvoriť', qty: 'Počet ks', itemName: 'Názov položky',
+    delete: 'Zmazať', save: 'Uložiť', cancel: 'Zrušiť', edit: 'Upraviť',
+    back: 'Späť', close: 'Zatvoriť', itemName: 'Názov položky',
     markBought: 'Označiť za kúpené', markPending: 'Označiť ako nekúpené',
     confirmDelete: 'Naozaj zmazať?', categories: 'Kategórie',
     products: 'Preddefinovaný tovar', catName: 'Názov kategórie',
-    addCat: 'Pridať kategóriu', prodName: 'Názov tovaru', prodCat: 'Kategória',
-    addProd: 'Pridať tovar', selectCat: 'Vyberte kategóriu',
+    prodName: 'Názov tovaru', prodCat: 'Kategória', selectCat: 'Vyberte kategóriu',
     addFromCatalog: 'Pridať z katalógu', customItem: 'Vlastná položka',
-    qtyLabel: 'Počet kusov', confirm: 'Potvrdiť', addMore: 'Pridať ďalší',
-    backToCats: 'Späť na kategórie', exitAdd: 'Ukončiť pridávanie',
+    qtyLabel: 'Množstvo', unit: 'Jednotka', confirm: 'Potvrdiť', addMore: 'Pridať ďalší',
     noItems: 'Zoznam je prázdny. Kliknite + a pridajte položku.',
     noCats: 'Zatiaľ žiadne kategórie.', noProds: 'Zatiaľ žiadne produkty.',
-    duplicate: 'Položka s týmto názvom už v zozname existuje.',
     printList: 'Tlačiť zoznam', allItems: 'Všetky položky',
     pending: 'Na kúpenie', boughtItems: 'Kúpené', clearBought: 'Odstrániť kúpené',
-    loading: 'Načítavam…',
+    loading: 'Načítavam…', catOrder: 'Poradie kategórií',
+    moveUp: 'Hore', moveDown: 'Dolu', newName: 'Nový názov',
   },
   en: {
     title: 'Shopping List', add: 'Add item', settings: 'Settings',
-    bought: 'Bought', delete: 'Delete', save: 'Save', cancel: 'Cancel',
-    back: 'Back', close: 'Close', qty: 'Qty', itemName: 'Item name',
+    delete: 'Delete', save: 'Save', cancel: 'Cancel', edit: 'Edit',
+    back: 'Back', close: 'Close', itemName: 'Item name',
     markBought: 'Mark as bought', markPending: 'Mark as not bought',
     confirmDelete: 'Really delete?', categories: 'Categories',
     products: 'Predefined products', catName: 'Category name',
-    addCat: 'Add category', prodName: 'Product name', prodCat: 'Category',
-    addProd: 'Add product', selectCat: 'Select category',
+    prodName: 'Product name', prodCat: 'Category', selectCat: 'Select category',
     addFromCatalog: 'Add from catalog', customItem: 'Custom item',
-    qtyLabel: 'Quantity', confirm: 'Confirm', addMore: 'Add more',
-    backToCats: 'Back to categories', exitAdd: 'Exit adding',
+    qtyLabel: 'Quantity', unit: 'Unit', confirm: 'Confirm', addMore: 'Add more',
     noItems: 'List is empty. Click + to add an item.',
     noCats: 'No categories yet.', noProds: 'No products yet.',
-    duplicate: 'An item with this name already exists.',
     printList: 'Print list', allItems: 'All items',
     pending: 'To buy', boughtItems: 'Bought', clearBought: 'Remove bought',
-    loading: 'Loading…',
+    loading: 'Loading…', catOrder: 'Category order',
+    moveUp: 'Up', moveDown: 'Down', newName: 'New name',
   },
   cs: {
     title: 'Nákupní seznam', add: 'Přidat položku', settings: 'Nastavení',
-    bought: 'Koupeno', delete: 'Smazat', save: 'Uložit', cancel: 'Zrušit',
-    back: 'Zpět', close: 'Zavřít', qty: 'Počet ks', itemName: 'Název položky',
+    delete: 'Smazat', save: 'Uložit', cancel: 'Zrušit', edit: 'Upravit',
+    back: 'Zpět', close: 'Zavřít', itemName: 'Název položky',
     markBought: 'Označit jako koupené', markPending: 'Označit jako nekoupené',
     confirmDelete: 'Opravdu smazat?', categories: 'Kategorie',
     products: 'Předdefinované zboží', catName: 'Název kategorie',
-    addCat: 'Přidat kategorii', prodName: 'Název zboží', prodCat: 'Kategorie',
-    addProd: 'Přidat zboží', selectCat: 'Vyberte kategorii',
+    prodName: 'Název zboží', prodCat: 'Kategorie', selectCat: 'Vyberte kategorii',
     addFromCatalog: 'Přidat z katalogu', customItem: 'Vlastní položka',
-    qtyLabel: 'Počet kusů', confirm: 'Potvrdit', addMore: 'Přidat další',
-    backToCats: 'Zpět na kategorie', exitAdd: 'Ukončit přidávání',
+    qtyLabel: 'Množství', unit: 'Jednotka', confirm: 'Potvrdit', addMore: 'Přidat další',
     noItems: 'Seznam je prázdný. Klikněte + a přidejte položku.',
     noCats: 'Zatím žádné kategorie.', noProds: 'Zatím žádné produkty.',
-    duplicate: 'Položka s tímto názvem již existuje.',
     printList: 'Tisknout seznam', allItems: 'Všechny položky',
     pending: 'K nákupu', boughtItems: 'Koupeno', clearBought: 'Odebrat koupené',
-    loading: 'Načítám…',
+    loading: 'Načítám…', catOrder: 'Pořadí kategorií',
+    moveUp: 'Nahoru', moveDown: 'Dolů', newName: 'Nový název',
   },
 };
 
@@ -85,13 +79,86 @@ function iconBtn(icon, title, cls = 'sl-icon-btn') {
 const ICONS = {
   settings: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
   plus: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  plusSm: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`,
+  edit: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   print: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
   back: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>`,
   close: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  up: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>`,
+  down: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
 };
 
-/* ── Modal styles — injected into document.head once ──────── */
+/* ── Custom dropdown (replaces <select>) ─────────────────────
+   Returns { wrap, getValue, setValue, onChange }              */
+function makeDropdown(options, initialValue, placeholder = '—') {
+  // options = [{value, label}]
+  let currentValue = initialValue;
+  let onChangeCb = null;
+
+  const wrap = el('div', 'sl-dd-wrap');
+  const trigger = el('div', 'sl-dd-trigger');
+  const triggerLabel = el('span', 'sl-dd-label');
+  const arrow = el('span', 'sl-dd-arrow'); arrow.textContent = '▾';
+  trigger.append(triggerLabel, arrow);
+  wrap.appendChild(trigger);
+
+  const menu = el('div', 'sl-dd-menu');
+  wrap.appendChild(menu);
+
+  const setLabel = (val) => {
+    const found = options.find(o => o.value === val);
+    triggerLabel.textContent = found ? found.label : placeholder;
+    triggerLabel.style.color = found ? '#fff' : 'rgba(255,255,255,0.4)';
+  };
+
+  const buildMenu = () => {
+    menu.innerHTML = '';
+    options.forEach(opt => {
+      const item = el('div', 'sl-dd-item' + (opt.value === currentValue ? ' sl-dd-item-active' : ''));
+      item.textContent = opt.label;
+      if (opt.value === currentValue) item.innerHTML += ' ' + ICONS.check;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        currentValue = opt.value;
+        setLabel(currentValue);
+        buildMenu();
+        menu.classList.remove('sl-dd-open');
+        wrap.classList.remove('sl-dd-active');
+        if (onChangeCb) onChangeCb(currentValue);
+      });
+      menu.appendChild(item);
+    });
+  };
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = menu.classList.toggle('sl-dd-open');
+    wrap.classList.toggle('sl-dd-active', isOpen);
+    // close other open dropdowns
+    document.querySelectorAll('.sl-dd-menu.sl-dd-open').forEach(m => {
+      if (m !== menu) { m.classList.remove('sl-dd-open'); m.closest('.sl-dd-wrap')?.classList.remove('sl-dd-active'); }
+    });
+  });
+
+  document.addEventListener('click', () => {
+    menu.classList.remove('sl-dd-open');
+    wrap.classList.remove('sl-dd-active');
+  }, { capture: true, passive: true });
+
+  setLabel(currentValue);
+  buildMenu();
+
+  return {
+    wrap,
+    getValue: () => currentValue,
+    setValue: (v) => { currentValue = v; setLabel(v); buildMenu(); },
+    onChange: (cb) => { onChangeCb = cb; },
+  };
+}
+
+/* ── Modal styles injected into document.head ───────────────── */
 const MODAL_STYLES = `
 .sl-modal-backdrop {
   position: fixed; inset: 0; z-index: 9999;
@@ -100,17 +167,15 @@ const MODAL_STYLES = `
   animation: slFadeIn .18s ease;
   font-family: var(--primary-font-family, Roboto, sans-serif);
 }
-@keyframes slFadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes slFadeIn { from{opacity:0} to{opacity:1} }
 
 .sl-modal {
-  background: #1c1c1e;
-  display: flex; flex-direction: column;
+  background: #1c1c1e; display: flex; flex-direction: column;
   flex: 1; overflow: hidden;
-  max-width: 640px; width: 100%;
-  margin: 0 auto;
+  max-width: 640px; width: 100%; margin: 0 auto;
   animation: slSlideUp .2s ease;
 }
-@keyframes slSlideUp { from { transform:translateY(24px);opacity:0; } to { transform:none;opacity:1; } }
+@keyframes slSlideUp { from{transform:translateY(24px);opacity:0} to{transform:none;opacity:1} }
 
 .sl-modal-header {
   display: flex; align-items: center;
@@ -118,14 +183,9 @@ const MODAL_STYLES = `
   border-bottom: 1px solid rgba(255,255,255,0.1);
   gap: 8px; flex-shrink: 0;
 }
-.sl-modal-title {
-  flex: 1; font-size: 16px; font-weight: 600; color: #fff;
-}
-.sl-modal-body {
-  flex: 1; overflow-y: auto; padding: 16px;
-}
+.sl-modal-title { flex: 1; font-size: 16px; font-weight: 600; color: #fff; }
+.sl-modal-body { flex: 1; overflow-y: auto; padding: 16px; }
 
-/* Bottom sheet */
 .sl-sheet-backdrop {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0,0,0,0.65);
@@ -134,8 +194,7 @@ const MODAL_STYLES = `
   font-family: var(--primary-font-family, Roboto, sans-serif);
 }
 .sl-sheet {
-  background: #242428;
-  border-radius: 20px 20px 0 0;
+  background: #242428; border-radius: 20px 20px 0 0;
   padding: 20px; width: 100%;
   display: flex; flex-direction: column; gap: 14px;
   box-shadow: 0 -12px 40px rgba(0,0,0,0.6);
@@ -143,14 +202,13 @@ const MODAL_STYLES = `
   max-height: 90vh; overflow-y: auto;
   max-width: 640px; margin: 0 auto;
 }
-@keyframes slSheetUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes slSheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
 
-/* shared */
+/* icons + buttons */
 .sl-icon-btn {
   background: none; border: none; cursor: pointer;
   color: rgba(255,255,255,0.5); padding: 7px; border-radius: 8px;
-  display: flex; align-items: center;
-  transition: background .15s, color .15s;
+  display: flex; align-items: center; transition: background .15s, color .15s;
 }
 .sl-icon-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .sl-icon-btn svg { display: block; }
@@ -158,8 +216,7 @@ const MODAL_STYLES = `
 .sl-btn {
   border: none; border-radius: 10px; padding: 11px 18px;
   font-size: 13px; font-weight: 500; cursor: pointer;
-  transition: opacity .12s, transform .1s; flex: 1;
-  font-family: inherit;
+  transition: opacity .12s, transform .1s; flex: 1; font-family: inherit;
 }
 .sl-btn:active { transform: scale(0.97); }
 .sl-btn-primary { background: var(--primary-color, #03a9f4); color: #fff; }
@@ -167,6 +224,7 @@ const MODAL_STYLES = `
 .sl-btn-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
 .sl-btn-ghost { background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); }
 
+/* qty stepper */
 .sl-stepper { display: flex; align-items: center; gap: 12px; }
 .sl-step-btn {
   width: 40px; height: 40px; border-radius: 50%;
@@ -183,15 +241,16 @@ const MODAL_STYLES = `
 .sl-detail-stepper {
   display: flex; align-items: center; padding: 10px 14px;
   background: rgba(255,255,255,0.05); border-radius: 12px;
-  justify-content: space-between; gap: 12px;
+  gap: 12px; flex-wrap: wrap;
 }
-.sl-detail-label { font-size: 13px; color: rgba(255,255,255,0.5); }
+.sl-detail-label { font-size: 13px; color: rgba(255,255,255,0.5); flex-shrink: 0; }
+.sl-stepper-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 
 .sl-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* catalog grid */
 .sl-cat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr));
   gap: 10px; padding: 4px 0;
 }
 .sl-cat-tile {
@@ -224,6 +283,7 @@ const MODAL_STYLES = `
 }
 .sl-quick-add-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
 
+/* text inputs */
 .sl-name-inp {
   width: 100%; background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.15);
@@ -232,7 +292,16 @@ const MODAL_STYLES = `
   font-family: inherit; transition: border-color .15s;
 }
 .sl-name-inp:focus { border-color: var(--primary-color, #03a9f4); }
+.sl-text-inp {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 8px 12px;
+  font-size: 13px; color: #fff; outline: none; font-family: inherit;
+  flex: 1;
+}
+.sl-text-inp:focus { border-color: var(--primary-color, #03a9f4); }
 
+/* settings rows */
 .sl-section { margin-bottom: 24px; }
 .sl-section-title {
   font-size: 11px; font-weight: 600; letter-spacing: 0.8px;
@@ -240,21 +309,64 @@ const MODAL_STYLES = `
 }
 .sl-row {
   display: flex; align-items: center; padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06); gap: 6px;
 }
 .sl-row-name { flex: 1; font-size: 14px; color: #fff; }
-.sl-row-sub { font-size: 11px; color: rgba(255,255,255,0.4); }
-.sl-add-row { display: flex; gap: 8px; margin-top: 10px; }
-.sl-add-row input, .sl-add-row select {
-  flex: 1; background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px; padding: 8px 12px;
-  font-size: 13px; color: #fff; outline: none; font-family: inherit;
-}
-.sl-add-row input:focus { border-color: var(--primary-color, #03a9f4); }
-.sl-add-row select { cursor: pointer; }
+.sl-row-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin-right: 2px; }
+.sl-add-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
 .sl-empty { text-align: center; padding: 20px; color: rgba(255,255,255,0.4); font-size: 13px; }
 .sl-custom-row { margin-bottom: 16px; }
+
+/* inline edit row */
+.sl-edit-row {
+  display: flex; gap: 6px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Custom Dropdown ── */
+.sl-dd-wrap { position: relative; flex: 1; }
+.sl-dd-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 8px 12px;
+  cursor: pointer; font-size: 13px; color: #fff;
+  transition: border-color .15s;
+  user-select: none; gap: 6px;
+}
+.sl-dd-trigger:hover, .sl-dd-active .sl-dd-trigger { border-color: var(--primary-color, #03a9f4); }
+.sl-dd-label { flex: 1; }
+.sl-dd-arrow { font-size: 10px; color: rgba(255,255,255,0.4); transition: transform .15s; flex-shrink: 0; }
+.sl-dd-active .sl-dd-arrow { transform: rotate(180deg); }
+.sl-dd-menu {
+  display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+  background: #2c2c30; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; z-index: 100; overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.sl-dd-menu.sl-dd-open { display: block; animation: slFadeIn .12s ease; }
+.sl-dd-item {
+  padding: 10px 14px; font-size: 13px; color: rgba(255,255,255,0.85);
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  transition: background .1s;
+}
+.sl-dd-item:hover { background: rgba(255,255,255,0.08); }
+.sl-dd-item-active { color: #fff; font-weight: 600; }
+.sl-dd-item svg { opacity: 0.7; flex-shrink: 0; }
+
+/* unit toggle (3 buttons) */
+.sl-unit-group { display: flex; gap: 6px; }
+.sl-unit-btn {
+  flex: 1; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6);
+  border-radius: 8px; padding: 7px 4px; font-size: 13px;
+  cursor: pointer; font-family: inherit; transition: all .12s;
+  text-align: center;
+}
+.sl-unit-btn.active {
+  background: var(--primary-color, #03a9f4);
+  border-color: transparent; color: #fff; font-weight: 600;
+}
 `;
 
 function ensureModalStyles() {
@@ -270,57 +382,59 @@ const CARD_STYLES = `
   :host { display: block; font-family: var(--primary-font-family, Roboto, sans-serif); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   .card {
-    background: var(--ha-card-background, var(--card-background-color, #1c1c1e));
-    border-radius: var(--ha-card-border-radius, 12px);
+    background: var(--ha-card-background, var(--card-background-color,#1c1c1e));
+    border-radius: var(--ha-card-border-radius,12px);
     overflow: hidden; min-height: 120px; position: relative;
   }
   .header {
-    display: flex; align-items: center;
-    padding: 14px 16px 10px;
-    border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.08));
-    gap: 8px;
+    display: flex; align-items: center; padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--divider-color,rgba(255,255,255,0.08)); gap: 8px;
   }
-  .header-title { flex: 1; font-size: 15px; font-weight: 600; letter-spacing: 0.3px; color: var(--primary-text-color, #fff); }
+  .header-title { flex:1; font-size:15px; font-weight:600; letter-spacing:.3px; color:var(--primary-text-color,#fff); }
   .sl-icon-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--secondary-text-color, rgba(255,255,255,0.5));
-    padding: 6px; border-radius: 8px; display: flex; align-items: center;
-    transition: background .15s, color .15s;
+    background:none; border:none; cursor:pointer;
+    color:var(--secondary-text-color,rgba(255,255,255,0.5));
+    padding:6px; border-radius:8px; display:flex; align-items:center;
+    transition:background .15s,color .15s;
   }
-  .sl-icon-btn:hover { background: rgba(255,255,255,0.07); color: var(--primary-text-color, #fff); }
-  .filter-tabs { display: flex; padding: 8px 16px 0; gap: 6px; }
+  .sl-icon-btn:hover { background:rgba(255,255,255,0.07); color:var(--primary-text-color,#fff); }
+  .filter-tabs { display:flex; padding:8px 16px 0; gap:6px; }
   .tab {
-    background: none; border: 1px solid var(--divider-color, rgba(255,255,255,0.12));
-    border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer;
-    color: var(--secondary-text-color, rgba(255,255,255,0.55)); transition: all .15s;
+    background:none; border:1px solid var(--divider-color,rgba(255,255,255,0.12));
+    border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer;
+    color:var(--secondary-text-color,rgba(255,255,255,0.55)); transition:all .15s;
   }
-  .tab.active { background: var(--primary-color, #03a9f4); border-color: transparent; color: #fff; font-weight: 500; }
-  .items-wrap { padding: 8px 0 80px; }
-  .empty-msg { text-align: center; padding: 32px 20px; color: var(--secondary-text-color, rgba(255,255,255,0.4)); font-size: 13px; }
+  .tab.active { background:var(--primary-color,#03a9f4); border-color:transparent; color:#fff; font-weight:500; }
+  .items-wrap { padding:8px 0 80px; }
+  .cat-header {
+    padding: 10px 16px 4px; font-size:11px; font-weight:600;
+    letter-spacing:.8px; text-transform:uppercase;
+    color:var(--secondary-text-color,rgba(255,255,255,0.4));
+  }
+  .empty-msg { text-align:center; padding:32px 20px; color:var(--secondary-text-color,rgba(255,255,255,0.4)); font-size:13px; }
   .item {
-    display: flex; align-items: center; padding: 11px 16px;
-    border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.06));
-    cursor: pointer; transition: background .12s; gap: 10px;
+    display:flex; align-items:center; padding:11px 16px;
+    border-bottom:1px solid var(--divider-color,rgba(255,255,255,0.06));
+    cursor:pointer; transition:background .12s; gap:10px;
   }
-  .item:hover { background: rgba(255,255,255,0.03); }
-  .item-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .item.pending .item-dot { background: #ef4444; }
-  .item.bought .item-dot { background: #22c55e; }
-  .item-name { flex: 1; font-size: 14px; color: var(--primary-text-color, #fff); font-weight: 500; }
-  .item.bought .item-name { text-decoration: line-through; color: var(--secondary-text-color, rgba(255,255,255,0.4)); }
-  .item-qty { font-size: 12px; padding: 2px 8px; border-radius: 10px; min-width: 28px; text-align: center; }
-  .item.bought .item-qty { background: rgba(34,197,94,0.12); color: #22c55e; }
-  .item.pending .item-qty { background: rgba(239,68,68,0.12); color: #ef4444; }
+  .item:hover { background:rgba(255,255,255,0.03); }
+  .item-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .item.pending .item-dot { background:#ef4444; }
+  .item.bought .item-dot { background:#22c55e; }
+  .item-name { flex:1; font-size:14px; color:var(--primary-text-color,#fff); font-weight:500; }
+  .item.bought .item-name { text-decoration:line-through; color:var(--secondary-text-color,rgba(255,255,255,0.4)); }
+  .item-qty { font-size:12px; padding:2px 8px; border-radius:10px; min-width:28px; text-align:center; white-space:nowrap; }
+  .item.bought .item-qty { background:rgba(34,197,94,0.12); color:#22c55e; }
+  .item.pending .item-qty { background:rgba(239,68,68,0.12); color:#ef4444; }
   .fab {
-    position: absolute; bottom: 16px; right: 16px;
-    width: 48px; height: 48px; border-radius: 50%;
-    background: var(--primary-color, #03a9f4); border: none; cursor: pointer;
-    color: #fff; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    transition: transform .12s, box-shadow .12s;
+    position:absolute; bottom:16px; right:16px;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--primary-color,#03a9f4); border:none; cursor:pointer;
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,0.4); transition:transform .12s,box-shadow .12s;
   }
-  .fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
-  .fab:active { transform: scale(0.95); }
+  .fab:hover { transform:scale(1.08); box-shadow:0 6px 20px rgba(0,0,0,0.5); }
+  .fab:active { transform:scale(0.95); }
 `;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -351,7 +465,11 @@ class ShoppingListCard extends HTMLElement {
       const r = await fetch(API_URL, { headers: { Authorization: `Bearer ${token}` } });
       if (r.ok) {
         const d = await r.json();
-        this._data = { items: d.items||[], categories: d.categories||[], products: d.products||[] };
+        this._data = {
+          items: d.items || [],
+          categories: d.categories || [],
+          products: d.products || [],
+        };
       }
     } catch(e) { console.warn('Shopping List: load error', e); }
     this._render();
@@ -370,8 +488,18 @@ class ShoppingListCard extends HTMLElement {
 
   _t() { return getLang(this._hass); }
   _nextId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-  _nameExists(name) {
-    return this._data.items.some(i => i.name.toLowerCase() === name.toLowerCase());
+
+  /* ── Sort items by category order ── */
+  _sortedItems(items) {
+    const cats = this._data.categories; // ordered array
+    return [...items].sort((a, b) => {
+      const ai = cats.indexOf(a.cat);
+      const bi = cats.indexOf(b.cat);
+      const ac = ai === -1 ? 999 : ai;
+      const bc = bi === -1 ? 999 : bi;
+      if (ac !== bc) return ac - bc;
+      return a.name.localeCompare(b.name);
+    });
   }
 
   /* ── Card render ── */
@@ -381,13 +509,11 @@ class ShoppingListCard extends HTMLElement {
     const style = document.createElement('style');
     style.textContent = CARD_STYLES;
     root.appendChild(style);
-
     const card = el('div', 'card');
 
     if (!this._loaded && !this._data.items.length) {
       card.appendChild(elTxt('div', this._t().loading, 'empty-msg'));
-      root.appendChild(card);
-      return;
+      root.appendChild(card); return;
     }
 
     card.appendChild(this._buildHeader());
@@ -427,15 +553,30 @@ class ShoppingListCard extends HTMLElement {
     let items = this._data.items;
     if (this._filter === 'pending') items = items.filter(i => !i.bought);
     else if (this._filter === 'bought') items = items.filter(i => i.bought);
+
     if (!items.length) {
       wrap.appendChild(elTxt('div', this._t().noItems, 'empty-msg'));
       return wrap;
     }
-    [...items].sort((a, b) => (a.bought ? 1 : 0) - (b.bought ? 1 : 0)).forEach(item => {
+
+    // Sort: bought always last, within same state sort by category order
+    const pending = this._sortedItems(items.filter(i => !i.bought));
+    const bought  = this._sortedItems(items.filter(i => i.bought));
+    const sorted  = [...pending, ...bought];
+
+    // Group by category with headers
+    let lastCat = null;
+    sorted.forEach(item => {
+      const catLabel = item.cat || '';
+      if (catLabel !== lastCat) {
+        lastCat = catLabel;
+        if (catLabel) wrap.appendChild(elTxt('div', catLabel, 'cat-header'));
+      }
       const row = el('div', 'item ' + (item.bought ? 'bought' : 'pending'));
       row.appendChild(el('span', 'item-dot'));
       row.appendChild(elTxt('span', item.name, 'item-name'));
-      row.appendChild(elTxt('span', `${item.qty} ks`, 'item-qty'));
+      const unit = item.unit || 'ks';
+      row.appendChild(elTxt('span', `${item.qty} ${unit}`, 'item-qty'));
       row.addEventListener('click', () => this._openDetail(item));
       wrap.appendChild(row);
     });
@@ -444,38 +585,31 @@ class ShoppingListCard extends HTMLElement {
 
   _buildFab() {
     const f = el('button', 'fab');
-    f.innerHTML = ICONS.plus;
-    f.title = this._t().add;
+    f.innerHTML = ICONS.plus; f.title = this._t().add;
     f.addEventListener('click', () => this._openAddCats());
     return f;
   }
 
   /* ════════════════════════════════════════════════════════
-     MODAL helpers — everything goes into document.body
+     MODAL helpers
      ════════════════════════════════════════════════════════ */
-
   _makeFullModal(title, onBack, onClose) {
     const bd = document.createElement('div');
     bd.className = 'sl-modal-backdrop';
     document.body.appendChild(bd);
-
     const modal = el('div', 'sl-modal');
     const header = el('div', 'sl-modal-header');
-
     if (onBack) {
-      const backBtn = iconBtn(ICONS.back, this._t().back);
-      backBtn.addEventListener('click', () => { bd.remove(); onBack(); });
-      header.appendChild(backBtn);
+      const b = iconBtn(ICONS.back, this._t().back);
+      b.addEventListener('click', () => { bd.remove(); onBack(); });
+      header.appendChild(b);
     }
     header.appendChild(elTxt('span', title, 'sl-modal-title'));
-
     const closeBtn = iconBtn(ICONS.close, this._t().close);
     closeBtn.addEventListener('click', () => { bd.remove(); if (onClose) onClose(); });
     header.appendChild(closeBtn);
-
     const body = el('div', 'sl-modal-body');
-    modal.appendChild(header);
-    modal.appendChild(body);
+    modal.append(header, body);
     bd.appendChild(modal);
     return { bd, body };
   }
@@ -490,15 +624,35 @@ class ShoppingListCard extends HTMLElement {
     return { bd, sheet };
   }
 
+  /* ── Unit toggle widget ── */
+  _makeUnitToggle(currentUnit) {
+    const group = el('div', 'sl-unit-group');
+    let selected = currentUnit || 'ks';
+    const btns = {};
+    UNITS.forEach(u => {
+      const b = el('button', 'sl-unit-btn' + (u === selected ? ' active' : ''));
+      b.textContent = u; b.type = 'button';
+      b.addEventListener('click', () => {
+        selected = u;
+        Object.values(btns).forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      btns[u] = b;
+      group.appendChild(b);
+    });
+    return { group, getUnit: () => selected };
+  }
+
   /* ── Detail bottom sheet ── */
   _openDetail(item) {
     const t = this._t();
     const { bd, sheet } = this._makeSheet();
-
     sheet.appendChild(elTxt('div', item.name, 'sl-detail-title'));
 
+    // Stepper + unit
     const stepperWrap = el('div', 'sl-detail-stepper');
     stepperWrap.appendChild(elTxt('span', t.qtyLabel, 'sl-detail-label'));
+    const right = el('div', 'sl-stepper-right');
     const stepper = el('div', 'sl-stepper');
     const minus = el('button', 'sl-step-btn'); minus.textContent = '−';
     const valEl = elTxt('span', item.qty, 'sl-qty-val');
@@ -506,17 +660,21 @@ class ShoppingListCard extends HTMLElement {
     minus.addEventListener('click', () => { if (item.qty > 1) { item.qty--; valEl.textContent = item.qty; } });
     plus.addEventListener('click', () => { item.qty++; valEl.textContent = item.qty; });
     stepper.append(minus, valEl, plus);
-    stepperWrap.appendChild(stepper);
+    const { group: unitGroup, getUnit } = this._makeUnitToggle(item.unit || 'ks');
+    right.append(stepper, unitGroup);
+    stepperWrap.appendChild(right);
     sheet.appendChild(stepperWrap);
 
     const actions = el('div', 'sl-actions');
-
     const toggleBtn = btn(item.bought ? t.markPending : t.markBought, 'sl-btn sl-btn-primary');
     toggleBtn.addEventListener('click', () => {
-      item.bought = !item.bought; this._save(); bd.remove(); this._render();
+      item.bought = !item.bought; item.unit = getUnit();
+      this._save(); bd.remove(); this._render();
     });
     const saveBtn = btn(t.save, 'sl-btn sl-btn-secondary');
-    saveBtn.addEventListener('click', () => { this._save(); bd.remove(); this._render(); });
+    saveBtn.addEventListener('click', () => {
+      item.unit = getUnit(); this._save(); bd.remove(); this._render();
+    });
     const delBtn = btn(t.delete, 'sl-btn sl-btn-danger');
     delBtn.addEventListener('click', () => {
       if (!confirm(t.confirmDelete)) return;
@@ -526,7 +684,6 @@ class ShoppingListCard extends HTMLElement {
     const cancelBtn = btn(t.cancel, 'sl-btn sl-btn-ghost');
     cancelBtn.style.flex = '0 0 auto';
     cancelBtn.addEventListener('click', () => bd.remove());
-
     actions.append(cancelBtn, toggleBtn, saveBtn, delBtn);
     sheet.appendChild(actions);
   }
@@ -535,7 +692,6 @@ class ShoppingListCard extends HTMLElement {
   _openAddCats() {
     const t = this._t();
     const { bd, body } = this._makeFullModal(t.addFromCatalog, null, null);
-
     const customBtn = btn(t.customItem, 'sl-btn sl-btn-secondary');
     customBtn.classList.add('sl-custom-row');
     customBtn.style.width = '100%';
@@ -560,8 +716,8 @@ class ShoppingListCard extends HTMLElement {
   _openAddProds(cat) {
     const t = this._t();
     const { bd, body } = this._makeFullModal(cat, () => this._openAddCats(), null);
-
     const prods = this._data.products.filter(p => p.cat === cat);
+
     if (!prods.length) {
       body.appendChild(elTxt('p', t.noProds, 'sl-empty'));
     } else {
@@ -570,8 +726,9 @@ class ShoppingListCard extends HTMLElement {
         const row = el('div', 'sl-prod-item');
         row.appendChild(elTxt('span', prod.name, 'sl-prod-name'));
         if (existing) {
-          const badge = elTxt('span', `${existing.qty} ks`);
-          badge.style.cssText = `font-size:12px;padding:2px 8px;border-radius:10px;margin-left:8px;flex-shrink:0;background:${existing.bought ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'};color:${existing.bought ? '#22c55e' : '#ef4444'};`;
+          const badge = elTxt('span', `${existing.qty} ${existing.unit || 'ks'}`);
+          const isBought = existing.bought;
+          badge.style.cssText = `font-size:12px;padding:2px 8px;border-radius:10px;margin-left:8px;flex-shrink:0;background:${isBought ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'};color:${isBought ? '#22c55e' : '#ef4444'};`;
           row.appendChild(badge);
         }
         row.addEventListener('click', () => { bd.remove(); this._openQtyPopup(prod.name, cat); });
@@ -585,10 +742,9 @@ class ShoppingListCard extends HTMLElement {
     body.appendChild(quickBtn);
   }
 
-  /* ── ADD: qty bottom sheet ── */
+  /* ── ADD: qty + unit bottom sheet ── */
   _openQtyPopup(prefillName, prefillCat) {
     const t = this._t();
-    // If item already in list, load its current qty
     const existingItem = prefillName
       ? this._data.items.find(i => i.name.toLowerCase() === prefillName.toLowerCase())
       : null;
@@ -598,8 +754,7 @@ class ShoppingListCard extends HTMLElement {
 
     if (!prefillName) {
       const nameInp = document.createElement('input');
-      nameInp.className = 'sl-name-inp';
-      nameInp.type = 'text';
+      nameInp.className = 'sl-name-inp'; nameInp.type = 'text';
       nameInp.placeholder = t.itemName;
       nameInp.addEventListener('input', () => { finalName = nameInp.value.trim(); });
       sheet.appendChild(nameInp);
@@ -608,8 +763,10 @@ class ShoppingListCard extends HTMLElement {
       sheet.appendChild(elTxt('div', prefillName, 'sl-detail-title'));
     }
 
+    // Stepper + unit
     const stepperWrap = el('div', 'sl-detail-stepper');
     stepperWrap.appendChild(elTxt('span', t.qtyLabel, 'sl-detail-label'));
+    const right = el('div', 'sl-stepper-right');
     const stepper = el('div', 'sl-stepper');
     const minus = el('button', 'sl-step-btn'); minus.textContent = '−';
     const valEl = elTxt('span', qty, 'sl-qty-val');
@@ -617,48 +774,47 @@ class ShoppingListCard extends HTMLElement {
     minus.addEventListener('click', () => { if (qty > 1) { qty--; valEl.textContent = qty; } });
     plus.addEventListener('click', () => { qty++; valEl.textContent = qty; });
     stepper.append(minus, valEl, plus);
-    stepperWrap.appendChild(stepper);
+    const { group: unitGroup, getUnit } = this._makeUnitToggle(existingItem?.unit || 'ks');
+    right.append(stepper, unitGroup);
+    stepperWrap.appendChild(right);
     sheet.appendChild(stepperWrap);
 
     const actions = el('div', 'sl-actions');
-
     const addMore = btn(t.addMore, 'sl-btn sl-btn-secondary');
     addMore.addEventListener('click', () => {
-      if (!this._addItem(finalName, prefillCat, qty)) return;
+      if (!this._addItem(finalName, prefillCat, qty, getUnit())) return;
       bd.remove(); this._openAddCats();
     });
     const confirm_ = btn(t.confirm, 'sl-btn sl-btn-primary');
     confirm_.addEventListener('click', () => {
-      if (!this._addItem(finalName, prefillCat, qty)) return;
+      if (!this._addItem(finalName, prefillCat, qty, getUnit())) return;
       bd.remove();
     });
     const cancelBtn = btn(t.cancel, 'sl-btn sl-btn-ghost');
     cancelBtn.style.flex = '0 0 auto';
     cancelBtn.addEventListener('click', () => bd.remove());
-
     actions.append(cancelBtn, addMore, confirm_);
     sheet.appendChild(actions);
   }
 
-  _addItem(name, cat, qty) {
+  _addItem(name, cat, qty, unit) {
     if (!name) return false;
     const existing = this._data.items.find(i => i.name.toLowerCase() === name.toLowerCase());
     if (existing) {
-      // Update qty on existing item instead of blocking
-      existing.qty = qty;
-      existing.bought = false; // unmark if was bought
+      existing.qty = qty; existing.unit = unit || 'ks'; existing.bought = false;
     } else {
-      this._data.items.push({ id: this._nextId(), name, cat: cat || '', qty, bought: false });
+      this._data.items.push({ id: this._nextId(), name, cat: cat || '', qty, unit: unit || 'ks', bought: false });
     }
     this._save(); this._render();
     return true;
   }
 
-  /* ── SETTINGS full modal ── */
+  /* ── SETTINGS ── */
   _openSettings() {
     const t = this._t();
     const { body } = this._makeFullModal(t.settings, null, null);
 
+    // Clear bought
     const sec0 = el('div', 'sl-section');
     sec0.appendChild(elTxt('div', t.boughtItems, 'sl-section-title'));
     const clearBtn = btn(t.clearBought, 'sl-btn sl-btn-danger');
@@ -671,11 +827,13 @@ class ShoppingListCard extends HTMLElement {
     sec0.appendChild(clearBtn);
     body.appendChild(sec0);
 
+    // Categories + ordering
     const sec1 = el('div', 'sl-section');
     sec1.appendChild(elTxt('div', t.categories, 'sl-section-title'));
     this._buildCatRows(sec1);
     body.appendChild(sec1);
 
+    // Products
     const sec2 = el('div', 'sl-section');
     sec2.appendChild(elTxt('div', t.products, 'sl-section-title'));
     this._buildProdRows(sec2);
@@ -685,32 +843,94 @@ class ShoppingListCard extends HTMLElement {
   _buildCatRows(parent) {
     const t = this._t();
     const list = el('div');
+
     const renderList = () => {
       list.innerHTML = '';
-      if (!this._data.categories.length) { list.appendChild(elTxt('div', t.noCats, 'sl-empty')); }
-      this._data.categories.forEach(cat => {
+      if (!this._data.categories.length) {
+        list.appendChild(elTxt('div', t.noCats, 'sl-empty')); return;
+      }
+      this._data.categories.forEach((cat, idx) => {
+        // Normal display row
         const row = el('div', 'sl-row');
-        row.appendChild(elTxt('span', cat, 'sl-row-name'));
+
+        // Up / Down
+        const upBtn = iconBtn(ICONS.up, t.moveUp);
+        upBtn.disabled = idx === 0;
+        upBtn.style.opacity = idx === 0 ? '0.3' : '1';
+        upBtn.addEventListener('click', () => {
+          if (idx === 0) return;
+          [this._data.categories[idx - 1], this._data.categories[idx]] =
+            [this._data.categories[idx], this._data.categories[idx - 1]];
+          this._save(); renderList();
+        });
+
+        const downBtn = iconBtn(ICONS.down, t.moveDown);
+        downBtn.disabled = idx === this._data.categories.length - 1;
+        downBtn.style.opacity = downBtn.disabled ? '0.3' : '1';
+        downBtn.addEventListener('click', () => {
+          if (idx >= this._data.categories.length - 1) return;
+          [this._data.categories[idx], this._data.categories[idx + 1]] =
+            [this._data.categories[idx + 1], this._data.categories[idx]];
+          this._save(); renderList();
+        });
+
+        row.appendChild(upBtn);
+        row.appendChild(downBtn);
+
+        // Name (click to edit)
+        const nameSpan = elTxt('span', cat, 'sl-row-name');
+        row.appendChild(nameSpan);
+
         const count = this._data.products.filter(p => p.cat === cat).length;
-        row.appendChild(elTxt('span', `${count} prod.`, 'sl-row-sub'));
-        const del = iconBtn(ICONS.trash, t.delete);
-        del.addEventListener('click', () => {
+        row.appendChild(elTxt('span', `${count}p`, 'sl-row-sub'));
+
+        // Edit
+        const editBtn = iconBtn(ICONS.edit, t.edit);
+        editBtn.addEventListener('click', () => {
+          // Replace row with edit row
+          const editRow = el('div', 'sl-edit-row');
+          const nameInp = document.createElement('input');
+          nameInp.className = 'sl-text-inp'; nameInp.value = cat;
+          const saveBtn2 = iconBtn(ICONS.check, t.save);
+          saveBtn2.style.color = '#22c55e';
+          saveBtn2.addEventListener('click', () => {
+            const newVal = nameInp.value.trim();
+            if (!newVal || (newVal !== cat && this._data.categories.includes(newVal))) return;
+            // Update category name in products and items too
+            this._data.products.forEach(p => { if (p.cat === cat) p.cat = newVal; });
+            this._data.items.forEach(i => { if (i.cat === cat) i.cat = newVal; });
+            this._data.categories[idx] = newVal;
+            this._save(); renderList();
+          });
+          nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') saveBtn2.click(); if (e.key === 'Escape') renderList(); });
+          editRow.append(nameInp, saveBtn2);
+          list.replaceChild(editRow, row);
+          nameInp.focus(); nameInp.select();
+        });
+        row.appendChild(editBtn);
+
+        // Delete
+        const delBtn = iconBtn(ICONS.trash, t.delete);
+        delBtn.addEventListener('click', () => {
           if (!confirm(t.confirmDelete)) return;
-          this._data.categories = this._data.categories.filter(c => c !== cat);
+          this._data.categories.splice(idx, 1);
           this._data.products = this._data.products.filter(p => p.cat !== cat);
           this._save(); renderList();
         });
-        row.appendChild(del);
+        row.appendChild(delBtn);
         list.appendChild(row);
       });
     };
+
     renderList();
     parent.appendChild(list);
 
+    // Add category
     const addRow = el('div', 'sl-add-row');
-    const catInp = inp('text', t.catName);
+    const catInp = document.createElement('input');
+    catInp.className = 'sl-text-inp'; catInp.placeholder = t.catName;
     const addBtn = btn('+', 'sl-btn sl-btn-primary');
-    addBtn.style.flex = '0 0 44px';
+    addBtn.style.cssText = 'flex:0 0 44px;padding:8px;';
     addBtn.addEventListener('click', () => {
       const v = catInp.value.trim();
       if (!v || this._data.categories.includes(v)) return;
@@ -724,66 +944,115 @@ class ShoppingListCard extends HTMLElement {
   _buildProdRows(parent) {
     const t = this._t();
     const list = el('div');
+
     const renderList = () => {
       list.innerHTML = '';
-      if (!this._data.products.length) { list.appendChild(elTxt('div', t.noProds, 'sl-empty')); }
-      this._data.products.forEach(prod => {
+      if (!this._data.products.length) { list.appendChild(elTxt('div', t.noProds, 'sl-empty')); return; }
+      // Sort products by category order
+      const catOrder = this._data.categories;
+      const sorted = [...this._data.products].sort((a, b) => {
+        const ai = catOrder.indexOf(a.cat), bi = catOrder.indexOf(b.cat);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.name.localeCompare(b.name);
+      });
+
+      sorted.forEach(prod => {
+        const idx = this._data.products.indexOf(prod);
         const row = el('div', 'sl-row');
         row.appendChild(elTxt('span', prod.name, 'sl-row-name'));
         row.appendChild(elTxt('span', prod.cat, 'sl-row-sub'));
-        const del = iconBtn(ICONS.trash, t.delete);
-        del.addEventListener('click', () => {
+
+        // Edit
+        const editBtn = iconBtn(ICONS.edit, t.edit);
+        editBtn.addEventListener('click', () => {
+          const editRow = el('div', 'sl-edit-row');
+
+          const nameInp = document.createElement('input');
+          nameInp.className = 'sl-text-inp'; nameInp.value = prod.name;
+
+          const catOpts = this._data.categories.map(c => ({ value: c, label: c }));
+          const catDD = makeDropdown(catOpts, prod.cat, t.selectCat);
+          catDD.wrap.style.maxWidth = '130px';
+
+          const saveBtn2 = iconBtn(ICONS.check, t.save);
+          saveBtn2.style.color = '#22c55e';
+          saveBtn2.addEventListener('click', () => {
+            const newName = nameInp.value.trim();
+            const newCat = catDD.getValue();
+            if (!newName || !newCat) return;
+            prod.name = newName; prod.cat = newCat;
+            this._save(); renderList();
+          });
+          nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') saveBtn2.click(); if (e.key === 'Escape') renderList(); });
+          editRow.append(nameInp, catDD.wrap, saveBtn2);
+          list.replaceChild(editRow, row);
+          nameInp.focus(); nameInp.select();
+        });
+        row.appendChild(editBtn);
+
+        // Delete
+        const delBtn = iconBtn(ICONS.trash, t.delete);
+        delBtn.addEventListener('click', () => {
           if (!confirm(t.confirmDelete)) return;
-          this._data.products = this._data.products.filter(p => !(p.name === prod.name && p.cat === prod.cat));
+          this._data.products.splice(this._data.products.indexOf(prod), 1);
           this._save(); renderList();
         });
-        row.appendChild(del);
+        row.appendChild(delBtn);
         list.appendChild(row);
       });
     };
+
     renderList();
     parent.appendChild(list);
 
+    // Add product row
     const addRow = el('div', 'sl-add-row');
-    const nameInp = inp('text', t.prodName);
-    const catSel = document.createElement('select');
-    const renderSel = () => {
-      catSel.innerHTML = `<option value="">${t.selectCat}</option>`;
-      this._data.categories.forEach(c => {
-        const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o);
-      });
-    };
-    renderSel();
+    const nameInp = document.createElement('input');
+    nameInp.className = 'sl-text-inp'; nameInp.placeholder = t.prodName;
+
+    const catOpts = () => this._data.categories.map(c => ({ value: c, label: c }));
+    const catDD = makeDropdown(catOpts(), '', t.selectCat);
+    catDD.wrap.style.maxWidth = '140px';
+
     const addBtn = btn('+', 'sl-btn sl-btn-primary');
-    addBtn.style.flex = '0 0 44px';
+    addBtn.style.cssText = 'flex:0 0 44px;padding:8px;';
     addBtn.addEventListener('click', () => {
-      const name = nameInp.value.trim(); const cat = catSel.value;
+      const name = nameInp.value.trim(); const cat = catDD.getValue();
       if (!name || !cat) return;
       if (this._data.products.some(p => p.name.toLowerCase() === name.toLowerCase() && p.cat === cat)) return;
-      this._data.products.push({ name, cat }); this._save(); nameInp.value = ''; renderList(); renderSel();
+      this._data.products.push({ name, cat }); this._save(); nameInp.value = ''; catDD.setValue(''); renderList();
     });
     nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
-    addRow.append(nameInp, catSel, addBtn);
+    addRow.append(nameInp, catDD.wrap, addBtn);
     parent.appendChild(addRow);
   }
 
   /* ── Print ── */
   _print() {
     const t = this._t();
-    const pending = this._data.items.filter(i => !i.bought);
-    const bought = this._data.items.filter(i => i.bought);
+    const pending = this._sortedItems(this._data.items.filter(i => !i.bought));
+    const bought  = this._sortedItems(this._data.items.filter(i => i.bought));
+
     const buildSection = (title, items) => {
       if (!items.length) return '';
-      const rows = items.map(i =>
-        `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;font-size:14px;">${i.name}</td>
-         <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;">${i.qty} ks</td>
-         <td style="padding:6px 0;border-bottom:1px solid #eee;width:60px;">☐</td></tr>`
-      ).join('');
+      let lastCat = null;
+      const rows = items.map(i => {
+        let catRow = '';
+        if (i.cat !== lastCat) {
+          lastCat = i.cat;
+          if (i.cat) catRow = `<tr><td colspan="3" style="padding:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#aaa;font-weight:600;">${i.cat}</td></tr>`;
+        }
+        return catRow + `<tr>
+          <td style="padding:6px 0;border-bottom:1px solid #eee;font-size:14px;">${i.name}</td>
+          <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">${i.qty} ${i.unit || 'ks'}</td>
+          <td style="padding:6px 0;border-bottom:1px solid #eee;width:60px;text-align:center;">☐</td>
+        </tr>`;
+      }).join('');
       return `<h3 style="margin:20px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#888;">${title}</h3>
               <table style="width:100%;border-collapse:collapse;">${rows}</table>`;
     };
+
     const html = `<!DOCTYPE html><html><head><title>${t.title}</title>
-      <style>body{font-family:sans-serif;padding:24px;max-width:480px;margin:auto;}
+      <style>body{font-family:sans-serif;padding:24px;max-width:520px;margin:auto;}
       h1{font-size:20px;margin-bottom:4px;}p{color:#888;font-size:12px;margin:0 0 16px;}
       @media print{body{padding:0;}}</style></head><body>
       <h1>${t.title}</h1><p>${new Date().toLocaleDateString()}</p>
@@ -799,4 +1068,4 @@ class ShoppingListCard extends HTMLElement {
 
 customElements.define('shopping-list-card', ShoppingListCard);
 window.customCards = window.customCards || [];
-window.customCards.push({ type: 'shopping-list-card', name: 'Shopping List', description: 'Shopping list with categories and predefined products.' });
+window.customCards.push({ type: 'shopping-list-card', name: 'Shopping List', description: 'Shopping list with categories, units and ordering.' });
