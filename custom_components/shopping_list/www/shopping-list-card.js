@@ -1,6 +1,6 @@
 /* ============================================================
    shopping-list-card.js  —  Home Assistant Lovelace Card
-   v1.2.0 — inline +/- in catalog, unit-aware step, unit on product
+   v1.2.1 — inline +/- in catalog, unit-aware step, unit on product
    ============================================================ */
 
 const API_URL = '/api/shopping_list/data';
@@ -666,22 +666,50 @@ class ShoppingListCard extends HTMLElement {
   /* ── Detail bottom sheet ── */
   _openDetail(item) {
     const t = this._t();
+    // Check if this item comes from the predefined product catalog
+    const prod = this._data.products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
+    const isPredefined = !!prod;
+    const itemUnit = item.unit || 'ks';
+    const step = (itemUnit === 'kg' || itemUnit === 'l') ? 0.1 : 1;
+    const fmt = (v) => (itemUnit === 'kg' || itemUnit === 'l') ? v.toFixed(1) : String(v);
+
     const { bd, sheet } = this._makeSheet();
     sheet.appendChild(elTxt('div', item.name, 'sl-detail-title'));
 
-    // Stepper + unit
+    // Stepper + unit (unit toggle only for non-predefined items)
     const stepperWrap = el('div', 'sl-detail-stepper');
     stepperWrap.appendChild(elTxt('span', t.qtyLabel, 'sl-detail-label'));
     const right = el('div', 'sl-stepper-right');
     const stepper = el('div', 'sl-stepper');
     const minus = el('button', 'sl-step-btn'); minus.textContent = '−';
-    const valEl = elTxt('span', item.qty, 'sl-qty-val');
+    const valEl = elTxt('span', fmt(item.qty), 'sl-qty-val');
     const plus = el('button', 'sl-step-btn'); plus.textContent = '+';
-    minus.addEventListener('click', () => { if (item.qty > 1) { item.qty--; valEl.textContent = item.qty; } });
-    plus.addEventListener('click', () => { item.qty++; valEl.textContent = item.qty; });
+    minus.addEventListener('click', () => {
+      if (item.qty > step) {
+        item.qty = Math.round((item.qty - step) * 10) / 10;
+        valEl.textContent = fmt(item.qty);
+      }
+    });
+    plus.addEventListener('click', () => {
+      item.qty = Math.round((item.qty + step) * 10) / 10;
+      valEl.textContent = fmt(item.qty);
+    });
     stepper.append(minus, valEl, plus);
-    const { group: unitGroup, getUnit } = this._makeUnitToggle(item.unit || 'ks');
-    right.append(stepper, unitGroup);
+    right.appendChild(stepper);
+
+    let getUnit;
+    if (isPredefined) {
+      // Show unit as static label, not editable
+      const unitLabel = elTxt('span', itemUnit);
+      unitLabel.style.cssText = 'font-size:15px;font-weight:600;color:rgba(255,255,255,0.5);padding:0 6px;';
+      right.appendChild(unitLabel);
+      getUnit = () => itemUnit;
+    } else {
+      const { group: unitGroup, getUnit: _getUnit } = this._makeUnitToggle(itemUnit);
+      right.appendChild(unitGroup);
+      getUnit = _getUnit;
+    }
+
     stepperWrap.appendChild(right);
     sheet.appendChild(stepperWrap);
 
@@ -1118,33 +1146,78 @@ class ShoppingListCard extends HTMLElement {
     const t = this._t();
     const pending = this._sortedItems(this._data.items.filter(i => !i.bought));
     const bought  = this._sortedItems(this._data.items.filter(i => i.bought));
+    const allItems = [...pending, ...bought];
+    if (!allItems.length) return;
 
-    const buildSection = (title, items) => {
-      if (!items.length) return '';
+    // Build flat list of renderable entries (cat headers + items)
+    const buildEntries = (items) => {
+      const entries = [];
       let lastCat = null;
-      const rows = items.map(i => {
-        let catRow = '';
+      items.forEach(i => {
         if (i.cat !== lastCat) {
           lastCat = i.cat;
-          if (i.cat) catRow = `<tr><td colspan="3" style="padding:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#aaa;font-weight:600;">${i.cat}</td></tr>`;
+          if (i.cat) entries.push({ type: 'cat', label: i.cat });
         }
-        return catRow + `<tr>
-          <td style="padding:6px 0;border-bottom:1px solid #eee;font-size:14px;">${i.name}</td>
-          <td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">${i.qty} ${i.unit || 'ks'}</td>
-          <td style="padding:6px 0;border-bottom:1px solid #eee;width:60px;text-align:center;">☐</td>
-        </tr>`;
-      }).join('');
-      return `<h3 style="margin:20px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#888;">${title}</h3>
-              <table style="width:100%;border-collapse:collapse;">${rows}</table>`;
+        entries.push({ type: 'item', data: i });
+      });
+      return entries;
     };
 
+    const pendingEntries = buildEntries(pending);
+    const boughtEntries  = bought.length ? [{ type: 'cat', label: `— ${t.boughtItems} —` }, ...buildEntries(bought)] : [];
+    const entries = [...pendingEntries, ...boughtEntries];
+
+    // Distribute entries into 3 columns (top-to-bottom fill)
+    const colCount = 3;
+    const perCol = Math.ceil(entries.length / colCount);
+    const cols = [[], [], []];
+    entries.forEach((e, i) => cols[Math.floor(i / perCol)].push(e));
+
+    const renderCol = (col) => col.map(e => {
+      if (e.type === 'cat') {
+        return `<div class="cat-hdr">${e.label}</div>`;
+      }
+      const { name, qty, unit } = e.data;
+      return `<div class="row"><span class="name">${name}</span><span class="qty">${qty} ${unit || 'ks'}</span><span class="chk">☐</span></div>`;
+    }).join('');
+
     const html = `<!DOCTYPE html><html><head><title>${t.title}</title>
-      <style>body{font-family:sans-serif;padding:24px;max-width:520px;margin:auto;}
-      h1{font-size:20px;margin-bottom:4px;}p{color:#888;font-size:12px;margin:0 0 16px;}
-      @media print{body{padding:0;}}</style></head><body>
-      <h1>${t.title}</h1><p>${new Date().toLocaleDateString()}</p>
-      ${buildSection(t.pending, pending)}${bought.length ? buildSection(t.boughtItems, bought) : ''}
-      <script>window.print();<\/script></body></html>`;
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
+  .page { padding: 10mm 8mm 8mm; }
+  .page-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6mm; border-bottom: 1.5px solid #000; padding-bottom: 3px; }
+  .page-header h1 { font-size: 15px; font-weight: 700; }
+  .page-header .date { font-size: 10px; color: #666; }
+  .columns { display: flex; gap: 0; align-items: flex-start; }
+  .col { flex: 1; padding: 0 5px; border-right: 1px solid #ddd; }
+  .col:first-child { padding-left: 0; }
+  .col:last-child { border-right: none; padding-right: 0; }
+  .cat-hdr {
+    font-size: 8.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #555;
+    padding: 5px 0 2px; margin-top: 3px;
+    border-top: 1px solid #ccc;
+  }
+  .col > .cat-hdr:first-child { border-top: none; margin-top: 0; }
+  .row { display: flex; align-items: baseline; gap: 3px; padding: 2px 0; border-bottom: 0.5px solid #ebebeb; }
+  .name { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qty { font-size: 10px; color: #333; white-space: nowrap; flex-shrink: 0; }
+  .chk { font-size: 12px; margin-left: 3px; flex-shrink: 0; }
+  @media print { @page { size: A4; margin: 0; } body { -webkit-print-color-adjust: exact; } }
+</style></head><body>
+<div class="page">
+  <div class="page-header">
+    <h1>${t.title}</h1>
+    <span class="date">${new Date().toLocaleDateString()}</span>
+  </div>
+  <div class="columns">
+    ${cols.map(col => `<div class="col">${renderCol(col)}</div>`).join('')}
+  </div>
+</div>
+<script>window.print();<\/script>
+</body></html>`;
+
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   }
