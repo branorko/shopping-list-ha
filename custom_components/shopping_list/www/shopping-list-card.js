@@ -1,6 +1,6 @@
 /* ============================================================
    shopping-list-card.js  —  Home Assistant Lovelace Card
-   v1.1.0 — units, edit mode, custom dropdowns, cat ordering
+   v1.2.0 — inline +/- in catalog, unit-aware step, unit on product
    ============================================================ */
 
 const API_URL = '/api/shopping_list/data';
@@ -353,6 +353,26 @@ const MODAL_STYLES = `
 .sl-dd-item:hover { background: rgba(255,255,255,0.08); }
 .sl-dd-item-active { color: #fff; font-weight: 600; }
 .sl-dd-item svg { opacity: 0.7; flex-shrink: 0; }
+
+/* inline catalog stepper */
+.sl-prod-stepper {
+  display: flex; align-items: center; gap: 0; flex-shrink: 0;
+}
+.sl-inline-step {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.07); color: #fff;
+  font-size: 18px; cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s; flex-shrink: 0; padding: 0;
+  font-family: inherit;
+}
+.sl-inline-step:hover { background: rgba(255,255,255,0.16); }
+.sl-inline-qty {
+  font-size: 14px; font-weight: 700; color: #fff;
+  min-width: 36px; text-align: center;
+}
+.sl-inline-qty.zero { color: rgba(255,255,255,0.25); }
 
 /* unit toggle (3 buttons) */
 .sl-unit-group { display: flex; gap: 6px; }
@@ -712,7 +732,7 @@ class ShoppingListCard extends HTMLElement {
     }
   }
 
-  /* ── ADD: products in category ── */
+  /* ── ADD: products in category — inline +/- stepper ── */
   _openAddProds(cat) {
     const t = this._t();
     const { bd, body } = this._makeFullModal(cat, () => this._openAddCats(), null);
@@ -722,16 +742,53 @@ class ShoppingListCard extends HTMLElement {
       body.appendChild(elTxt('p', t.noProds, 'sl-empty'));
     } else {
       prods.forEach(prod => {
+        const unit = prod.unit || 'ks';
+        const step = (unit === 'kg' || unit === 'l') ? 0.1 : 1;
+        const fmt = (v) => (unit === 'kg' || unit === 'l') ? v.toFixed(1) : String(v);
+
+        // Current quantity in the list
         const existing = this._data.items.find(i => i.name.toLowerCase() === prod.name.toLowerCase());
+        let qty = existing ? existing.qty : 0;
+
         const row = el('div', 'sl-prod-item');
         row.appendChild(elTxt('span', prod.name, 'sl-prod-name'));
-        if (existing) {
-          const badge = elTxt('span', `${existing.qty} ${existing.unit || 'ks'}`);
-          const isBought = existing.bought;
-          badge.style.cssText = `font-size:12px;padding:2px 8px;border-radius:10px;margin-left:8px;flex-shrink:0;background:${isBought ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)'};color:${isBought ? '#22c55e' : '#ef4444'};`;
-          row.appendChild(badge);
-        }
-        row.addEventListener('click', () => { bd.remove(); this._openQtyPopup(prod.name, cat); });
+
+        // Unit label
+        const unitLabel = elTxt('span', unit);
+        unitLabel.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.35);margin-right:4px;flex-shrink:0;';
+        row.appendChild(unitLabel);
+
+        // Inline stepper
+        const stepperWrap = el('div', 'sl-prod-stepper');
+
+        const minusBtn = el('button', 'sl-inline-step');
+        minusBtn.textContent = '−'; minusBtn.type = 'button';
+
+        const qtyEl = elTxt('span', qty > 0 ? fmt(qty) : '—', 'sl-inline-qty' + (qty === 0 ? ' zero' : ''));
+
+        const plusBtn = el('button', 'sl-inline-step');
+        plusBtn.textContent = '+'; plusBtn.type = 'button';
+
+        const updateQty = (newQty) => {
+          qty = Math.max(0, Math.round(newQty * 10) / 10);
+          qtyEl.textContent = qty > 0 ? fmt(qty) : '—';
+          qtyEl.className = 'sl-inline-qty' + (qty === 0 ? ' zero' : '');
+          if (qty > 0) {
+            this._addItem(prod.name, cat, qty, unit);
+          } else {
+            // Remove item if qty goes to 0
+            this._data.items = this._data.items.filter(
+              i => i.name.toLowerCase() !== prod.name.toLowerCase()
+            );
+            this._save(); this._render();
+          }
+        };
+
+        minusBtn.addEventListener('click', (e) => { e.stopPropagation(); updateQty(qty - step); });
+        plusBtn.addEventListener('click',  (e) => { e.stopPropagation(); updateQty(qty + step); });
+
+        stepperWrap.append(minusBtn, qtyEl, plusBtn);
+        row.appendChild(stepperWrap);
         body.appendChild(row);
       });
     }
@@ -742,13 +799,19 @@ class ShoppingListCard extends HTMLElement {
     body.appendChild(quickBtn);
   }
 
-  /* ── ADD: qty + unit bottom sheet ── */
+  /* ── ADD: qty + unit bottom sheet (custom / free-text items) ── */
   _openQtyPopup(prefillName, prefillCat) {
     const t = this._t();
     const existingItem = prefillName
       ? this._data.items.find(i => i.name.toLowerCase() === prefillName.toLowerCase())
       : null;
-    let qty = existingItem ? existingItem.qty : 1;
+    const prod = prefillName
+      ? this._data.products.find(p => p.name.toLowerCase() === prefillName.toLowerCase())
+      : null;
+    const prodUnit = prod?.unit || existingItem?.unit || 'ks';
+    const step = (prodUnit === 'kg' || prodUnit === 'l') ? 0.1 : 1;
+    const fmt = (v) => (prodUnit === 'kg' || prodUnit === 'l') ? v.toFixed(1) : String(v);
+    let qty = existingItem ? existingItem.qty : (step === 1 ? 1 : step);
     let finalName = prefillName || '';
     const { bd, sheet } = this._makeSheet();
 
@@ -769,12 +832,12 @@ class ShoppingListCard extends HTMLElement {
     const right = el('div', 'sl-stepper-right');
     const stepper = el('div', 'sl-stepper');
     const minus = el('button', 'sl-step-btn'); minus.textContent = '−';
-    const valEl = elTxt('span', qty, 'sl-qty-val');
+    const valEl = elTxt('span', fmt(qty), 'sl-qty-val');
     const plus = el('button', 'sl-step-btn'); plus.textContent = '+';
-    minus.addEventListener('click', () => { if (qty > 1) { qty--; valEl.textContent = qty; } });
-    plus.addEventListener('click', () => { qty++; valEl.textContent = qty; });
+    minus.addEventListener('click', () => { if (qty > step) { qty = Math.round((qty - step) * 10) / 10; valEl.textContent = fmt(qty); } });
+    plus.addEventListener('click', () => { qty = Math.round((qty + step) * 10) / 10; valEl.textContent = fmt(qty); });
     stepper.append(minus, valEl, plus);
-    const { group: unitGroup, getUnit } = this._makeUnitToggle(existingItem?.unit || 'ks');
+    const { group: unitGroup, getUnit } = this._makeUnitToggle(prodUnit);
     right.append(stepper, unitGroup);
     stepperWrap.appendChild(right);
     sheet.appendChild(stepperWrap);
@@ -948,7 +1011,6 @@ class ShoppingListCard extends HTMLElement {
     const renderList = () => {
       list.innerHTML = '';
       if (!this._data.products.length) { list.appendChild(elTxt('div', t.noProds, 'sl-empty')); return; }
-      // Sort products by category order
       const catOrder = this._data.categories;
       const sorted = [...this._data.products].sort((a, b) => {
         const ai = catOrder.indexOf(a.cat), bi = catOrder.indexOf(b.cat);
@@ -956,22 +1018,28 @@ class ShoppingListCard extends HTMLElement {
       });
 
       sorted.forEach(prod => {
-        const idx = this._data.products.indexOf(prod);
         const row = el('div', 'sl-row');
         row.appendChild(elTxt('span', prod.name, 'sl-row-name'));
-        row.appendChild(elTxt('span', prod.cat, 'sl-row-sub'));
+        const meta = el('span', 'sl-row-sub');
+        meta.textContent = `${prod.cat} · ${prod.unit || 'ks'}`;
+        row.appendChild(meta);
 
         // Edit
         const editBtn = iconBtn(ICONS.edit, t.edit);
         editBtn.addEventListener('click', () => {
           const editRow = el('div', 'sl-edit-row');
+          editRow.style.flexWrap = 'wrap';
 
           const nameInp = document.createElement('input');
           nameInp.className = 'sl-text-inp'; nameInp.value = prod.name;
+          nameInp.style.minWidth = '80px';
 
           const catOpts = this._data.categories.map(c => ({ value: c, label: c }));
           const catDD = makeDropdown(catOpts, prod.cat, t.selectCat);
-          catDD.wrap.style.maxWidth = '130px';
+          catDD.wrap.style.maxWidth = '120px';
+
+          const { group: unitGroup, getUnit } = this._makeUnitToggle(prod.unit || 'ks');
+          unitGroup.style.flexShrink = '0';
 
           const saveBtn2 = iconBtn(ICONS.check, t.save);
           saveBtn2.style.color = '#22c55e';
@@ -979,11 +1047,11 @@ class ShoppingListCard extends HTMLElement {
             const newName = nameInp.value.trim();
             const newCat = catDD.getValue();
             if (!newName || !newCat) return;
-            prod.name = newName; prod.cat = newCat;
+            prod.name = newName; prod.cat = newCat; prod.unit = getUnit();
             this._save(); renderList();
           });
           nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') saveBtn2.click(); if (e.key === 'Escape') renderList(); });
-          editRow.append(nameInp, catDD.wrap, saveBtn2);
+          editRow.append(nameInp, catDD.wrap, unitGroup, saveBtn2);
           list.replaceChild(editRow, row);
           nameInp.focus(); nameInp.select();
         });
@@ -1004,14 +1072,32 @@ class ShoppingListCard extends HTMLElement {
     renderList();
     parent.appendChild(list);
 
-    // Add product row
+    // Add product row — name + category + unit
     const addRow = el('div', 'sl-add-row');
+    addRow.style.flexWrap = 'wrap';
+
     const nameInp = document.createElement('input');
     nameInp.className = 'sl-text-inp'; nameInp.placeholder = t.prodName;
+    nameInp.style.minWidth = '80px';
 
     const catOpts = () => this._data.categories.map(c => ({ value: c, label: c }));
     const catDD = makeDropdown(catOpts(), '', t.selectCat);
-    catDD.wrap.style.maxWidth = '140px';
+    catDD.wrap.style.maxWidth = '130px';
+
+    // Unit selector for new product
+    let newProdUnit = 'ks';
+    const unitGroup2 = el('div', 'sl-unit-group');
+    unitGroup2.style.flexShrink = '0';
+    UNITS.forEach(u => {
+      const b = el('button', 'sl-unit-btn' + (u === newProdUnit ? ' active' : ''));
+      b.textContent = u; b.type = 'button';
+      b.addEventListener('click', () => {
+        newProdUnit = u;
+        unitGroup2.querySelectorAll('.sl-unit-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      unitGroup2.appendChild(b);
+    });
 
     const addBtn = btn('+', 'sl-btn sl-btn-primary');
     addBtn.style.cssText = 'flex:0 0 44px;padding:8px;';
@@ -1019,10 +1105,11 @@ class ShoppingListCard extends HTMLElement {
       const name = nameInp.value.trim(); const cat = catDD.getValue();
       if (!name || !cat) return;
       if (this._data.products.some(p => p.name.toLowerCase() === name.toLowerCase() && p.cat === cat)) return;
-      this._data.products.push({ name, cat }); this._save(); nameInp.value = ''; catDD.setValue(''); renderList();
+      this._data.products.push({ name, cat, unit: newProdUnit });
+      this._save(); nameInp.value = ''; catDD.setValue(''); renderList();
     });
     nameInp.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
-    addRow.append(nameInp, catDD.wrap, addBtn);
+    addRow.append(nameInp, catDD.wrap, unitGroup2, addBtn);
     parent.appendChild(addRow);
   }
 
